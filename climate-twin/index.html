@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="AI-Powered Digital Twin of India's Climate — ISRO + IMD Geodashboard" />
+  <title>AI Digital Twin — India's Climate</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' stroke='%2300d4aa' fill='none' stroke-width='2'/%3E%3Cpath d='M8 20c3-6 6-8 8-8s5 2 8 8' stroke='%2300d4aa' fill='none'/%3E%3C/svg%3E" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link href="css/styles.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header__brand">
+        <div class="header__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M6 16c2-4 4-6 6-6s4 2 6 6"/>
+            <circle cx="12" cy="9" r="1.5" fill="#00d4aa" stroke="none"/>
+          </svg>
+        </div>
+        <div>
+          <div class="header__title">AI Digital Twin of India's Climate</div>
+          <div class="header__sub">NCR-SAF · PINN Surrogate · Spatio-Temporal Super-Resolution · June 2026</div>
+        </div>
+      </div>
+      <div class="header__actions">
+        <span class="badge">Atmanirbhar Climate Intelligence</span>
+        <span class="badge badge--accent">IMD 0.25° + MOSDAC</span>
+        <div class="status-pill" id="apiStatus"><span class="status-pill__dot"></span><span id="apiStatusText">Connecting API…</span></div>
+        <select id="regionSelect" class="region-select" aria-label="Select region"></select>
+      </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" data-view="dashboard" role="tab" aria-selected="true">Geo-Dashboard</button>
+      <button class="nav-tab" data-view="model" role="tab">AI Model</button>
+      <button class="nav-tab" data-view="process" role="tab">PoC Workflow</button>
+      <button class="nav-tab" data-view="architecture" role="tab">Architecture</button>
+    </nav>
+
+    <!-- Main content -->
+    <div class="app__main" id="mainContent">
+      <!-- Dashboard view -->
+      <div id="dashboardView" class="dashboard-view" style="display:contents">
+        <aside class="sidebar">
+          <!-- Data pipeline -->
+          <section class="panel">
+            <div class="panel__head">
+              <h2 class="panel__title">Data Ingestion Engine</h2>
+              <span class="panel__badge">Live</span>
+            </div>
+            <div class="pipeline-list" id="pipelineList"></div>
+          </section>
+
+          <!-- Layer controls -->
+          <section class="panel">
+            <div class="panel__head">
+              <h2 class="panel__title">Layer Controls</h2>
+              <span class="panel__badge">0.25°</span>
+            </div>
+            <div class="layer-list" id="layerList"></div>
+            <div class="layer-primary">
+              <label for="primaryLayer">Active Heatmap Layer</label>
+              <select id="primaryLayer"></select>
+            </div>
+            <div class="layer-primary">
+              <label for="mapRenderMode">Map Render Style</label>
+              <select id="mapRenderMode">
+                <option value="heatmap" selected>Smooth Heatmap (Leaflet.heat)</option>
+                <option value="grid">0.25° Grid Cells</option>
+              </select>
+            </div>
+          </section>
+
+          <!-- Simulation sandbox -->
+          <section class="panel">
+            <div class="panel__head">
+              <h2 class="panel__title">What-If Simulation Sandbox</h2>
+            </div>
+
+            <div class="slider-block">
+              <div class="slider-block__row">
+                <span>Rainfall Modification</span>
+                <span class="slider-block__val" id="rainVal">0%</span>
+              </div>
+              <input type="range" id="rainMod" min="-50" max="50" value="0" step="1" aria-label="Rainfall modification" />
+              <div class="slider-block__ticks"><span>-50%</span><span>0</span><span>+50%</span></div>
+            </div>
+
+            <div class="slider-block">
+              <div class="slider-block__row">
+                <span>Temperature Offset (ΔT)</span>
+                <span class="slider-block__val" id="tempVal">0.0°C</span>
+              </div>
+              <input type="range" id="tempOff" min="-2" max="5" value="0" step="0.1" aria-label="Temperature offset" />
+              <div class="slider-block__ticks"><span>-2°C</span><span>0</span><span>+5°C</span></div>
+            </div>
+
+            <div class="slider-block">
+              <div class="slider-block__row">
+                <span>Sea Surface Temp Anomaly</span>
+                <span class="slider-block__val" id="sstVal">0.0°C</span>
+              </div>
+              <input type="range" id="sstAnom" min="-2" max="3" value="0" step="0.1" aria-label="SST anomaly" />
+              <div class="slider-block__ticks"><span>-2°C</span><span>0</span><span>+3°C</span></div>
+            </div>
+
+            <button type="button" class="btn btn--full" id="resetSim">Reset Scenario</button>
+            <button type="button" class="btn btn--full btn--accent" id="exportScenario">Export Scenario JSON</button>
+
+            <div class="impact-box">
+              <div class="impact-box__label">Downscaled Impact Preview</div>
+              <p class="impact-box__text" id="impactText">Baseline assimilation active.</p>
+            </div>
+          </section>
+        </aside>
+
+        <div class="map-area">
+          <div id="map"></div>
+
+          <div class="map-overlay assim-bar">
+            <div class="assim-bar__label">Dynamic Data Assimilation (EnKF)</div>
+            <div class="assim-bar__track"><div class="assim-bar__fill" id="assimFill" style="width:87%"></div></div>
+            <div class="assim-bar__meta"><span id="assimPct">87%</span><span>Model drift: 0.02%</span></div>
+          </div>
+
+          <div class="map-overlay legend" id="legend">
+            <div class="legend__title" id="legendTitle">IMD Rainfall (QPE)</div>
+            <div class="legend__bar" id="legendBar"></div>
+            <div class="legend__range"><span id="legMin">0</span><span id="legMax">100</span></div>
+            <div class="legend__unit" id="legendUnit">mm/day · 0.25° grid</div>
+          </div>
+
+          <div class="map-overlay stats-col">
+            <div class="stat-card">
+              <div class="stat-card__label">Mean Rainfall</div>
+              <div class="stat-card__value"><span id="statRain">—</span><span class="stat-card__unit"> mm</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__label">Peak LST</div>
+              <div class="stat-card__value"><span id="statLst">—</span><span class="stat-card__unit"> °C</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__label">Grid Points</div>
+              <div class="stat-card__value" id="statPts">—</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card__label">Data Source</div>
+              <div class="stat-card__value" id="statSource" style="font-size:12px">IMD Pune</div>
+            </div>
+          </div>
+
+          <div class="map-overlay chart-panel" id="chartPanel">
+            <div class="chart-panel__head">7-Day AI Forecast <span id="chartRegion"></span></div>
+            <canvas id="forecastChart" height="120"></canvas>
+          </div>
+
+          <div class="map-overlay time-bar">
+            <button class="time-bar__btn" id="tBack7" title="Jump back 7 days">«</button>
+            <button class="time-bar__btn" id="tBack1" title="Previous day">‹</button>
+            <div class="time-bar__display">
+              <div class="time-bar__date" id="timeDate">20 Jun 2026</div>
+              <div class="time-bar__hint" id="timeOff">Now · 7–14 day horizon</div>
+            </div>
+            <button class="time-bar__btn" id="tFwd1" title="Next day">›</button>
+            <button class="time-bar__btn" id="tFwd7" title="Jump forward 7 days">»</button>
+          </div>
+
+          <div class="map-overlay tooltip" id="tooltip"></div>
+        </div>
+      </div>
+
+      <!-- Process flow view -->
+      <div id="processView" class="info-view hidden">
+        <h2>Process Flow — Operational Use Case</h2>
+        <p>Data flows from raw physical telemetry through the AI fusion engine to actionable geospatial insights for national strategy and local emergency management.</p>
+
+        <div class="usp-banner">
+          <strong>USP: Atmanirbhar Climate Intelligence at 1 km² Resolution</strong>
+          <p>Real-time convergence of ISRO satellite data and IMD gridded networks through a lightweight PINN surrogate layer — democratizing complex atmospheric science into a unified, responsive dashboard.</p>
+        </div>
+
+        <div class="flow-diagram">
+          <div class="flow-stage">
+            <div class="flow-stage__num">Stage 1</div>
+            <div class="flow-stage__title">Raw Data Ingestion</div>
+            <ul>
+              <li>IMD Gridded (.bin)</li>
+              <li>MOSDAC INSAT (HDF5)</li>
+              <li>Bhuvan Admin Layers</li>
+            </ul>
+            <div class="flow-stage__tag">Data Engineering</div>
+          </div>
+          <div class="flow-stage">
+            <div class="flow-stage__num">Stage 2</div>
+            <div class="flow-stage__title">Data Fusion &amp; AI Engine</div>
+            <ul>
+              <li>Spatio-temporal super-resolution</li>
+              <li>Short-term QPE prediction</li>
+              <li>Neural VAE + EnKF assimilation</li>
+            </ul>
+            <div class="flow-stage__tag">Model Inference</div>
+          </div>
+          <div class="flow-stage">
+            <div class="flow-stage__num">Stage 3</div>
+            <div class="flow-stage__title">Visualization &amp; Sandbox</div>
+            <ul>
+              <li>Geo-Dashboard (this interface)</li>
+              <li>What-If simulation</li>
+              <li>Automated risk alerts</li>
+            </ul>
+            <div class="flow-stage__tag">Decision Making</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Architecture view -->
+      <div id="architectureView" class="info-view hidden">
+        <h2>3-Tier Modular Architecture</h2>
+        <p>System calculations scale independently of browser layout logic — decoupling data engineering, model inference, and presentation layers.</p>
+
+        <div class="arch-grid">
+          <div class="arch-card">
+            <div class="arch-card__tier">Tier 1 — Data Layer</div>
+            <div class="arch-card__title">Multi-Source Ingestion</div>
+            <div class="arch-card__tech"><code>GDAL</code> <code>Rasterio</code> <code>Xarray</code> <code>NetCDF4</code></div>
+            <p class="arch-card__desc">Automated micro-services pull, parse, and validate native binary, NetCDF, and HDF5 formats from MOSDAC and IMD Pune servers into PostGIS.</p>
+          </div>
+          <div class="arch-card">
+            <div class="arch-card__tier">Tier 2 — AI Engine</div>
+            <div class="arch-card__title">PINN Surrogate + Assimilation</div>
+            <div class="arch-card__tech"><code>PyTorch</code> <code>PyG</code> <code>FastAPI</code> <code>PostgreSQL</code></div>
+            <p class="arch-card__desc">Physics-informed neural networks fuse conservation laws with deep learning. Ensemble Kalman filtering mitigates drift as daily observations update.</p>
+          </div>
+          <div class="arch-card">
+            <div class="arch-card__tier">Tier 3 — Presentation</div>
+            <div class="arch-card__title">Geodashboard (This UI)</div>
+            <div class="arch-card__tech"><code>HTML5</code> <code>Leaflet.js</code> <code>Leaflet.heat</code></div>
+            <p class="arch-card__desc">Hardware-accelerated web dashboard with Leaflet satellite/terrain basemaps, smooth heatmap overlays, wind vectors, and the What-If climatic sandbox.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alerts bar -->
+    <footer class="alerts-bar" id="alertsBar">
+      <span class="alerts-bar__label">Anomaly Alerts</span>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="js/climate-data.js"></script>
+  <script src="js/map-engine.js"></script>
+  <script src="js/api-client.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
